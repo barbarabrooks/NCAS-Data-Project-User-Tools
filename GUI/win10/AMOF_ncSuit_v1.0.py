@@ -1059,7 +1059,7 @@ def extract_callback(selected_var_name):
       if len(xyz) == 1:
          #1D
          row = 0
-         col = -1
+         col = 0
          dd = np.array(ncid.variables[selected_var_name][:])
          for m in range(len(dd)):
             row += 1
