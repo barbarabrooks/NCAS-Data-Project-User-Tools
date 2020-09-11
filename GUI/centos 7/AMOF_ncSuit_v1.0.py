@@ -10,7 +10,7 @@
           The selected variable is plottable at this point
 """
 
-# !./anaconda3/bin/python3.7
+# !/usr/bin/python3
 import os
 from os import path
 from tkinter import *
@@ -208,18 +208,30 @@ def GraphVar_callback(selected_var_name, D1, D2, D3, log, qc, log_x, log_y):
    
    # apply qc if selected
    if qc == True:
-      # get valid min and max
-      dd_min = ncid.variables[selected_var_name].getncattr('valid_min')
-      dd_max = ncid.variables[selected_var_name].getncattr('valid_max')
+      try:
+         # get valid min and max
+         dd_min = ncid.variables[selected_var_name].getncattr('valid_min')
+         dd_max = ncid.variables[selected_var_name].getncattr('valid_max')
+      except:
+         dd_min = np.min(dd)
+         dd_max = np.max(dd)
    else:
       dd_min = np.min(dd)
       dd_max = np.max(dd)
       
    #get data long name, units attributes and if present the practicle units
    try:
-      dd_label = "{} ({})".format(ncid.variables[selected_var_name].getncattr('long_name'),ncid.variables[selected_var_name].getncattr('practical_units'))
-   except:   
-      dd_label = "{} ({})".format(ncid.variables[selected_var_name].getncattr('long_name'),ncid.variables[selected_var_name].getncattr('units'))
+      dd_n = ncid.variables[selected_var_name].getncattr('long_name')
+   except:
+      dd_n = selected_var_name
+   
+   dd_u = 'Unitless'
+   try:
+      dd_u = ncid.variables[selected_var_name].getncattr('practical_units')
+   except:
+      dd_u = ncid.variables[selected_var_name].getncattr('units')   
+      
+   dd_label = "{} ({})".format(dd_n, dd_u)
    
    """
       log the selected variable if checkbox was selected
@@ -277,34 +289,83 @@ def GraphVar_callback(selected_var_name, D1, D2, D3, log, qc, log_x, log_y):
    """
       Data preparation - dependent variable 1
    """
-   # Time is always an axis
-   d1_ti = "Time (UTC)"
-   t_file = ncid.variables['time'][:]
-   d1 = []
-   # need to conver epoch time to something matplotlib understands 
-   for n in range(len(t_file)):
-      d1.append(mdates.datestr2num(time.asctime(time.gmtime(t_file[n]))))
-   # set the limits as selected by the user   
-   d1_min = mdates.datestr2num(time.asctime(time.gmtime(D1[2])))
-   d1_max = mdates.datestr2num(time.asctime(time.gmtime(D1[3])))
+   if len(D1) > 1:
+      # get the data
+      try:
+         d1 = ncid.variables[D1[0]][:]
+         d1_min = D1[2]
+         d1_max = D1[3]
+      except:
+         d1 = np.arange(0, len(ncid.dimensions[D1[0]]), 1)
+         d1_min = D1[2]
+         d1_max = D1[3]
+   
+      # get the unitis
+      try:
+         u1 = ncid.variables[D1[0]].getncattr('units')
+      except:
+         u1 = 'Unitless'
+   
+      # get label   
+      try: 
+         n1 = ncid.variables[D1[0]].getncattr('long_name')
+      except:
+         n1 = D1[0]
+   
+      # if dimension 1 is time
+      if "time" in D1[0]:
+         d1_ti = "Time (UTC)"
+         t_file = d1
+         d1 = []
+         # need to conver epoch time to something matplotlib understands 
+         for n in range(len(t_file)):
+            d1.append(mdates.datestr2num(time.asctime(time.gmtime(t_file[n]))))
+         # set the limits as selected by the user   
+         d1_min = mdates.datestr2num(time.asctime(time.gmtime(D1[2])))
+         d1_max = mdates.datestr2num(time.asctime(time.gmtime(D1[3])))
+      else:
+         d1_ti = "{} ({})".format(n1, u1)
    
    """
       Data preparation - dependent variable 2
    """
    # if there is a second dependent varaible (2D data) get the details 
    if len(D2) > 1:
+      # get the data
       try:
-         # if there is an associated variable
-         d2_ti = "{} ({})".format(ncid.variables[D2[0]].getncattr('long_name'),ncid.variables[D2[0]].getncattr('units'))   
          d2 = ncid.variables[D2[0]][:]
          d2_min = D2[2]
          d2_max = D2[3]
       except:
-         # if its just and index with no associated variable
-         d2_ti = "{}".format(D2[0])
          d2 = np.arange(0, len(ncid.dimensions[D2[0]]), 1)
          d2_min = D2[2]
          d2_max = D2[3]
+   
+      # get the unitis
+      try:
+         u2 = ncid.variables[D2[0]].getncattr('units')
+      except:
+         u2 = 'Unitless'
+   
+      # get label   
+      try: 
+         n2 = ncid.variables[D2[0]].getncattr('long_name')
+      except:
+         n2 = D2[0]
+         
+      # if dimension 2 is time
+      if "time" in D2[0]:
+         d2_ti = "Time (UTC)"
+         t_file = d2
+         d2 = []
+         # need to conver epoch time to something matplotlib understands 
+         for n in range(len(t_file)):
+            d2.append(mdates.datestr2num(time.asctime(time.gmtime(t_file[n]))))
+         # set the limits as selected by the user   
+         d2_min = mdates.datestr2num(time.asctime(time.gmtime(D2[2])))
+         d2_max = mdates.datestr2num(time.asctime(time.gmtime(D2[3])))
+      else:
+         d2_ti = "{} ({})".format(n2, u2)
    
    """
       Data preparation - dependent variable 3
@@ -312,24 +373,49 @@ def GraphVar_callback(selected_var_name, D1, D2, D3, log, qc, log_x, log_y):
    # if there is a third dependent varaible (3D data) get the details 
    # axes and lables
    if len(D3) > 1:
+      # get the data
       try:
-         # if there is an associated variable
-         d3_ti = "{} ({})".format(ncid.variables[D3[0]].getncattr('long_name'),ncid.variables[D2[0]].getncattr('units'))   
          d3 = ncid.variables[D3[0]][:]
          d3_min = D3[2]
          d3_max = D3[3]
       except:
-         # if its just and index with no associated variable
-         d3_ti = "{}".format(D3[0])
          d3 = np.arange(0, len(ncid.dimensions[D3[0]]), 1)
          d3_min = D3[2]
-         d3_max = D3[3] 
-
+         d3_max = D3[3]
+   
+      # get the unitis
+      try:
+         u3 = ncid.variables[D3[0]].getncattr('units')
+      except:
+         u3 = 'Unitless'
+   
+      # get label   
+      try: 
+         n3 = ncid.variables[D3[0]].getncattr('long_name')
+      except:
+         n3 = D3[0]
+         
+      # if dimension 3 is time
+      if "time" in D2[0]:
+         d3_ti = "Time (UTC)"
+         t_file = d3
+         d3 = []
+         # need to conver epoch time to something matplotlib understands 
+         for n in range(len(t_file)):
+            d3.append(mdates.datestr2num(time.asctime(time.gmtime(t_file[n]))))
+         # set the limits as selected by the user   
+         d3_min = mdates.datestr2num(time.asctime(time.gmtime(D3[2])))
+         d3_max = mdates.datestr2num(time.asctime(time.gmtime(D3[3])))
+      else:
+         d3_ti = "{} ({})".format(n3, u3)
+   
    """
       Plot title
    """
-   ti = "{}".format(ncid.variables[selected_var_name].getncattr('long_name'))
-   
+   try:
+      ti = "{}".format(ncid.variables[selected_var_name].getncattr('long_name'))
+   except:
+      ti = "{}".format(selected_var_name)
    #close the source file
    ncid.close()         
    
@@ -464,7 +550,7 @@ def GraphVar_callback(selected_var_name, D1, D2, D3, log, qc, log_x, log_y):
    if x_label == "Time (UTC)":
       ax.xaxis.set_major_locator(locator)
       ax.xaxis.set_major_formatter(formatter)
-   else:
+   if y_label == "Time (UTC)":
       ax.yaxis.set_major_locator(locator)
       ax.yaxis.set_major_formatter(formatter) 
 
@@ -835,13 +921,23 @@ def plot_callback(selected_var_name):
       d1_units.set(ncid.variables[xyz[0]].getncattr('units'))
    except:
       d1_units.set('1') 
-   #limits
+   #min - limits
    try:      
       mn1 = ncid.variables[xyz[0]].getncattr('valid_min')
+   except:
+      try:
+         mn1 = np.min(ncid.variables[xyz[0]][:]) 
+      except:
+            mn1 = 1      
+   #max - limits 
+   try:           
       mx1 = ncid.variables[xyz[0]].getncattr('valid_max')
    except:
-      mn1 = 1
-      mx1 = len(ncid.dimensions[xyz[0]]) 
+      try: 
+          mx1 = np.max(ncid.variables[xyz[0]][:])  
+      except:
+          mx1 = len(ncid.dimensions[xyz[0]])
+      
    D1MIN.configure(from_= mn1)
    D1MIN.configure(to = mx1)
    D1MAX.configure(from_= mn1)
@@ -863,13 +959,23 @@ def plot_callback(selected_var_name):
          d2_units.set(ncid.variables[xyz[1]].getncattr('units'))
       except:
          d2_units.set('1') 
-      #limits
+      #min - limits
       try:      
          mn2 = ncid.variables[xyz[1]].getncattr('valid_min')
+      except:
+         try: 
+            mn2 = np.min(ncid.variables[xyz[1]][:])  
+         except:
+            mn2 = 1
+      #max - limits 
+      try:           
          mx2 = ncid.variables[xyz[1]].getncattr('valid_max')
       except:
-         mn2 = 1
-         mx2 = len(ncid.dimensions[xyz[1]]) 
+         try: 
+            mx2 = np.max(ncid.variables[xyz[1]][:])
+         except: 
+            mx2 = len(ncid.dimensions[xyz[1]])
+      
       D2MIN.configure(from_= mn2)
       D2MIN.configure(to = mx2)
       D2MAX.configure(from_= mn2)
@@ -894,13 +1000,23 @@ def plot_callback(selected_var_name):
             d3_units.set(ncid.variables[xyz[2]].getncattr('units'))
          except:
             d3_units.set('1') 
-         #limits
+         #min - limits
          try:      
             mn3 = ncid.variables[xyz[2]].getncattr('valid_min')
+         except:
+            try: 
+               mn3 = np.min(ncid.variables[xyz[2]][:]) 
+            except:
+               mn3 = 1            
+         #max - limits 
+         try:           
             mx3 = ncid.variables[xyz[2]].getncattr('valid_max')
          except:
-            mn3 = 1
-            mx3 = len(ncid.dimensions[xyz[2]])
+            try:
+               mx3 = np.max(ncid.variables[xyz[2]][:]) 
+            except:
+               mx3 = len(ncid.dimensions[xyz[2]])
+         
          D3MIN.configure(from_= mn3)
          D3MIN.configure(to = mx3)
          D3MAX.configure(from_= mn3)
@@ -1320,18 +1436,25 @@ def help_version():
    message = "September 2020: 1.0"
    messagebox.showinfo("Version", message)
 
+"""
+   Change working directory to where the source file is
+"""   
+try:
+    os.chdir(os.path.dirname(__file__))
+except:
+    pass
+
 """   
    create root window
 """
 root = Tk()
-root.title('AMOF NC Tool')
+root.title('AMOF NC Tools')
 root.geometry('500x200+100+100')
 root.columnconfigure(0, weight=1)
 root.columnconfigure(1, weight=1)
 root.rowconfigure(0, weight=1)
 root.rowconfigure(1, weight=1)
 root.resizable(0, 0) #Don't allow resizing in the x or y direction
-
 
 # file label
 l1 = Label(root, text="File:", height = 2, width = 10)
